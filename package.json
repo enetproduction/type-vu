@@ -1,0 +1,30 @@
+{
+  "name": "@enetproduction/type-vu",
+  "version": "0.1.0",
+  "description": "Type Vue allows to create TypeScript Vue.js classes which support inheritance",
+  "main": "src/NComponent.ts",
+  "scripts": {
+    "test": "node test/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/enetproduction/type-vu.git"
+  },
+  "keywords": [
+    "typescript",
+    "vue",
+    "class",
+    "inheritance",
+    "extend",
+    "vue"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/enetproduction/type-vu/issues"
+  },
+  "homepage": "https://github.com/enetproduction/type-vu#readme",
+  "devDependencies": {
+    "vue": "^2.6.10"
+  }
+}
