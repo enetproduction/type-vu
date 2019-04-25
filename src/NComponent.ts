@@ -1,4 +1,4 @@
-import Vue, { ComponentOptions } from 'vue';
+import Vue, { ComponentOptions, VueConstructor } from 'vue';
 
 // tslint:disable:no-any
 // tslint:disable:function-name
@@ -16,71 +16,28 @@ export abstract class NComponent<T> {
 
 }
 
-interface IComponentContructorMetadata {
-  template: string;
-  methods: Record<string, any>;
-  computed: Record<string, any>;
-  props: Record<string, INPropParams>;
-}
-
 interface IVueExtInstance extends Vue {
   __instance: any;
 }
 
-function getMeta(target: any): IComponentContructorMetadata {
+function getMeta(target: any): ComponentOptions<any> {
   if (!target.__meta) {
-    target.__meta = {
-      template: '',
-      methods: {},
-      props: {},
-      computed: {},
-    };
+    target.__meta = {};
   }
   return target.__meta;
 }
 
-export function NTemplate(template: string) {
+function mergeMeta(target: any, newMeta: ComponentOptions<any>) {
+  target.__meta = {
+    ...target.__meta,
+    ...newMeta,
+  };
+}
+
+export function NOptions(options: ComponentOptions<any>) {
   return (target: any) => {
-    getMeta(target).template = template;
+    mergeMeta(target, options);
     return target;
-  };
-}
-
-export function NMethod() {
-  return (classType: any, field: string, descriptor: PropertyDescriptor) => {
-    const proto = classType.constructor;
-    getMeta(proto).methods[field] = function (...args: any[]): any {
-      return this.__instance[field].call(this.__instance, ...args);
-    };
-  };
-}
-
-export function NComputed() {
-  return (target: any, field: string, descriptor?: PropertyDescriptor): any => {
-
-    if (!descriptor || (!descriptor.get && !descriptor.set)) {
-      throw new Error('NComponent - attempt to use @NComputed to non setter/getter value.');
-    }
-
-    const proto = target.constructor;
-    const meta = getMeta(proto);
-
-    if (!meta.computed[field]) {
-      meta.computed[field] = {};
-    }
-
-    if (descriptor.get !== undefined) {
-      meta.computed[field].get = function () {
-        return descriptor.get!.call(this.__instance);
-      };
-    }
-
-    if (descriptor.set !== undefined) {
-      meta.computed[field].set = function (newValue: any) {
-        return descriptor.set!.call(this.__instance, newValue);
-      };
-    }
-
   };
 }
 
@@ -93,8 +50,11 @@ interface INPropParams {
 export function NProp(params: INPropParams) {
   return (target: any, field: string, descriptor?: PropertyDescriptor): any => {
     const proto = target.constructor;
-    getMeta(proto).props[field] = params;
+    const meta = getMeta(proto);
+    meta.props = meta.props || {};
+    (meta.props as any)[field] = params;
     Object.defineProperty(target, field, {
+      enumerable: false,
       get() {
         return this.fVue.$props[field];
       },
@@ -105,31 +65,106 @@ export function NProp(params: INPropParams) {
   };
 }
 
+export const $internalHooks = [
+  'data',
+  'beforeCreate',
+  'created',
+  'beforeMount',
+  'mounted',
+  'beforeDestroy',
+  'destroyed',
+  'beforeUpdate',
+  'updated',
+  'activated',
+  'deactivated',
+  'render',
+  'errorCaptured', // 2.5
+  'serverPrefetch', // 2.6
+];
+
+function extractMethodsAndProperties(proto: any): any {
+  const options: any = {};
+
+  Object.getOwnPropertyNames(proto).forEach((key) => {
+
+    if (key === 'constructor') {
+      return;
+    }
+
+    // hooks
+    if ($internalHooks.indexOf(key) > -1) {
+      options[key] = proto[key];
+      return;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(proto, key)!;
+    if (descriptor.value !== void 0) {
+      // methods
+      if (typeof descriptor.value === 'function') {
+        const method = function (this: any, ...args: any[]) {
+          return descriptor.value.call(this.__instance, ...args);
+        };
+        (options.methods || (options.methods = {}))[key] = method;
+      } else {
+        // typescript decorated data
+        (options.mixins || (options.mixins = [])).push({
+          data (this: Vue) {
+            return { [key]: descriptor.value };
+          },
+        });
+      }
+    } else if (descriptor.get || descriptor.set) {
+      // computed properties
+      if (descriptor.enumerable) {
+
+        options.computed = {};
+
+        if (descriptor.get !== undefined) {
+          options.computed[key] = options.computed[key] || {};
+          options.computed[key].get = function (this: any) {
+            return descriptor.get!.call(this.__instance);
+          };
+        }
+
+        if (descriptor.set !== undefined) {
+          options.computed[key] = options.computed[key] || {};
+          options.computed[key].set = function (this: any, value: any) {
+            descriptor.set!.call(this.__instance, value);
+          };
+        }
+
+      }
+    }
+  });
+
+  return options;
+}
+
 export function createVueComponent<T>(classType: INComponentClass<T>): ComponentOptions<any> {
 
-  const meta: IComponentContructorMetadata = (classType as any).__meta;
+  const meta: ComponentOptions<any> = (classType as any).__meta;
+  const proto = classType.prototype;
 
-  const vueOptions = {
-
-    name: classType.name,
-
-    template: meta.template,
+  const options: any = {
 
     beforeCreate(this: IVueExtInstance) {
       this.__instance = new classType();
       this.__instance.fVue = this;
+      if (typeof this.__instance.beforeCreate === 'function') {
+        this.__instance.beforeCreate();
+      }
     },
 
     data(this: IVueExtInstance) {
       return { state: this.__instance.fState };
     },
 
-    methods: meta.methods,
-    props: meta.props,
-    computed: meta.computed,
+    ...meta,
 
   };
 
-  return vueOptions;
+  return {
+    ...options,
+    ...extractMethodsAndProperties(proto),
+  };
 
 }
