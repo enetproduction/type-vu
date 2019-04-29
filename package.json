@@ -1,6 +1,6 @@
 {
   "name": "@enp/type-vu",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Type Vue allows to create TypeScript Vue.js classes which support inheritance",
   "main": "src/NComponent.ts",
   "scripts": {
