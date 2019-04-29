@@ -1,18 +1,22 @@
-import Vue, { ComponentOptions, VueConstructor } from 'vue';
+import Vue, { ComponentOptions } from 'vue';
 
 // tslint:disable:no-any
 // tslint:disable:function-name
 // tslint:disable:typedef
 // tslint:disable:no-invalid-this
 
-export interface INComponentClass<T> {
-  new(): NComponent<T>;
+export interface INComponentClass<P, S> {
+  new(): ComponentClass<P, S>;
 }
 
-export abstract class NComponent<T> {
+export abstract class ComponentClass<P, S> {
 
-  protected fState: T;
+  protected abstract $state: S;
   protected fVue: Vue;
+
+  protected get $props(): P {
+    return (this.fVue.$props as P);
+  }
 
 }
 
@@ -34,7 +38,7 @@ function mergeMeta(target: any, newMeta: ComponentOptions<any>) {
   };
 }
 
-export function NOptions(options: ComponentOptions<any>) {
+export function Component(options: ComponentOptions<any>) {
   return (target: any) => {
     mergeMeta(target, options);
     return target;
@@ -47,21 +51,12 @@ interface INPropParams {
   default?: any;
 }
 
-export function NProp(params: INPropParams) {
+export function Prop(params: INPropParams) {
   return (target: any, field: string, descriptor?: PropertyDescriptor): any => {
     const proto = target.constructor;
     const meta = getMeta(proto);
     meta.props = meta.props || {};
     (meta.props as any)[field] = params;
-    Object.defineProperty(target, field, {
-      enumerable: false,
-      get() {
-        return this.fVue.$props[field];
-      },
-      set() {
-        throw new Error('NComponent error - attempt to set property value.');
-      },
-    });
   };
 }
 
@@ -92,10 +87,16 @@ function extractMethodsAndProperties(proto: any): any {
     }
 
     // hooks
-    if ($internalHooks.indexOf(key) > -1) {
-      options[key] = proto[key];
-      return;
+    if (key[0] === '$') {
+      const internalHook = key.slice(1);
+      if ($internalHooks.indexOf(internalHook) > -1) {
+        options[internalHook] = function(this: any, ...args: any[]) {
+          return proto[key].call(this.__instance, ...args);
+        }
+        return;
+      }
     }
+
     const descriptor = Object.getOwnPropertyDescriptor(proto, key)!;
     if (descriptor.value !== void 0) {
       // methods
@@ -116,7 +117,7 @@ function extractMethodsAndProperties(proto: any): any {
       // computed properties
       if (descriptor.enumerable) {
 
-        options.computed = {};
+        options.computed = options.computed || {};
 
         if (descriptor.get !== undefined) {
           options.computed[key] = options.computed[key] || {};
@@ -139,7 +140,7 @@ function extractMethodsAndProperties(proto: any): any {
   return options;
 }
 
-export function createVueComponent<T>(classType: INComponentClass<T>): ComponentOptions<any> {
+export function createVueComponent<P, S>(classType: INComponentClass<P, S>): ComponentOptions<any> {
 
   const meta: ComponentOptions<any> = (classType as any).__meta;
   const proto = classType.prototype;
@@ -155,7 +156,7 @@ export function createVueComponent<T>(classType: INComponentClass<T>): Component
     },
 
     data(this: IVueExtInstance) {
-      return { state: this.__instance.fState };
+      return this.__instance.$state;
     },
 
     ...meta,
