@@ -52,7 +52,7 @@ interface INPropParams {
 }
 
 export function Prop(params: INPropParams) {
-  return (target: any, field: string, descriptor?: PropertyDescriptor): any => {
+  return (target: any, field: string): any => {
     const proto = target.constructor;
     const meta = getMeta(proto);
     meta.props = meta.props || {};
@@ -115,25 +115,23 @@ function extractMethodsAndProperties(proto: any): any {
       }
     } else if (descriptor.get || descriptor.set) {
       // computed properties
-      if (descriptor.enumerable) {
 
-        options.computed = options.computed || {};
+      options.computed = options.computed || {};
 
-        if (descriptor.get !== undefined) {
-          options.computed[key] = options.computed[key] || {};
-          options.computed[key].get = function (this: any) {
-            return descriptor.get!.call(this.__instance);
-          };
-        }
-
-        if (descriptor.set !== undefined) {
-          options.computed[key] = options.computed[key] || {};
-          options.computed[key].set = function (this: any, value: any) {
-            descriptor.set!.call(this.__instance, value);
-          };
-        }
-
+      if (descriptor.get !== undefined) {
+        options.computed[key] = options.computed[key] || {};
+        options.computed[key].get = function (this: any) {
+          return descriptor.get!.call(this.__instance);
+        };
       }
+
+      if (descriptor.set !== undefined) {
+        options.computed[key] = options.computed[key] || {};
+        options.computed[key].set = function (this: any, value: any) {
+          descriptor.set!.call(this.__instance, value);
+        };
+      }
+
     }
   });
 
