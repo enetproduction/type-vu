@@ -10,7 +10,8 @@
     "build:main": "node build/build.js",
     "example": "npm run build && webpack --config example/webpack.config.js",
     "dev": "webpack --config example/webpack.config.js --watch",
-    "release": "bash build/release.sh"
+    "release": "bash build/release.sh",
+    "clean": "rimraf ./lib"
   },
   "repository": {
     "type": "git",
@@ -37,6 +38,7 @@
     "@babel/plugin-syntax-jsx": "^7.0.0",
     "@babel/preset-env": "^7.1.0",
     "babel-loader": "^8.0.4",
+    "rimraf": "^2.6.2",
     "rollup-plugin-replace": "^2.0.0",
     "rollup": "^0.66.5",
     "ts-loader": "^5.2.1",
