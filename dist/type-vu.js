@@ -1,5 +1,5 @@
 /**
-  * type-vu v1.1.0
+  * type-vu v1.2.0
   * (c) 2019-present ENP
   * @license MIT
   */
