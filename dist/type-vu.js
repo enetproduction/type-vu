@@ -25,7 +25,7 @@
         }
         Object.defineProperty(ComponentClass.prototype, "$props", {
             get: function () {
-                return this.fVue.$props;
+                return this.$vue.$props;
             },
             enumerable: true,
             configurable: true
@@ -135,18 +135,39 @@
         });
         return options;
     }
+    function collectData(instance) {
+        var resultObject = {};
+        var blacklist = [
+            '$vue', '$state'
+        ];
+        Object.getOwnPropertyNames(instance)
+            .filter(function (key) { return blacklist.indexOf(key) === -1; })
+            .forEach(function (key) {
+            var initialValue = instance[key];
+            resultObject[key] = initialValue;
+            Object.defineProperty(instance, key, {
+                configurable: true,
+                enumerable: true,
+                get: function () { return resultObject[key]; },
+                set: function (value) { return resultObject[key] = value; },
+            });
+        });
+        return resultObject;
+    }
     function createVueComponent(classType) {
         var meta = classType.__meta;
         var proto = classType.prototype;
+        var dataObject;
         var options = __assign({ beforeCreate: function () {
                 this.__instance = new classType();
-                this.__instance.fVue = this;
+                this.__instance.$vue = this;
+                dataObject = collectData(this.__instance);
                 if (typeof this.__instance.beforeCreate === 'function') {
                     this.__instance.beforeCreate();
                 }
             },
             data: function () {
-                return this.__instance.$state;
+                return dataObject;
             } }, meta);
         return __assign({}, options, extractMethodsAndProperties(proto));
     }

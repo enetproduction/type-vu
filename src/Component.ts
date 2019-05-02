@@ -5,17 +5,16 @@ import Vue, { ComponentOptions } from 'vue';
 // tslint:disable:typedef
 // tslint:disable:no-invalid-this
 
-export interface INComponentClass<P, S> {
-  new(): ComponentClass<P, S>;
+export interface INComponentClass<P> {
+  new(): ComponentClass<P>;
 }
 
-export abstract class ComponentClass<P, S> {
+export abstract class ComponentClass<P> {
 
-  protected abstract $state: S;
-  protected fVue: Vue;
+  protected $vue: Vue;
 
   protected get $props(): P {
-    return (this.fVue.$props as P);
+    return (this.$vue.$props as P);
   }
 
 }
@@ -138,23 +137,54 @@ function extractMethodsAndProperties(proto: any): any {
   return options;
 }
 
-export function createVueComponent<P, S>(classType: INComponentClass<P, S>): ComponentOptions<any> {
+function collectData(instance: any): Record<string, any> {
+
+  const resultObject: Record<string, any> = {};
+
+  const blacklist: string[] = [
+    '$vue', '$state'
+  ];
+
+  Object.getOwnPropertyNames(instance)
+    .filter(key => blacklist.indexOf(key) === -1)
+    .forEach((key) => {
+
+      const initialValue: any = instance[key];
+      resultObject[key] = initialValue;
+
+      Object.defineProperty(instance, key, {
+        configurable: true,
+        enumerable: true,
+        get: () => resultObject[key],
+        set: (value: any) => resultObject[key] = value,
+      });
+
+  });
+
+  return resultObject;
+
+}
+
+export function createVueComponent<P>(classType: INComponentClass<P>): ComponentOptions<any> {
 
   const meta: ComponentOptions<any> = (classType as any).__meta;
   const proto = classType.prototype;
+
+  let dataObject: Record<string, any>;
 
   const options: any = {
 
     beforeCreate(this: IVueExtInstance) {
       this.__instance = new classType();
-      this.__instance.fVue = this;
+      this.__instance.$vue = this;
+      dataObject = collectData(this.__instance);
       if (typeof this.__instance.beforeCreate === 'function') {
         this.__instance.beforeCreate();
       }
     },
 
     data(this: IVueExtInstance) {
-      return this.__instance.$state;
+      return dataObject;
     },
 
     ...meta,
