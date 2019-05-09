@@ -1,9 +1,13 @@
 {
   "name": "@enp/type-vu",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Type Vue allows to create TypeScript Vue.js classes which support inheritance",
   "typings": "lib/Component.d.ts",
   "main": "dist/type-vu.common.js",
+  "files": [
+    "dist",
+    "lib"
+  ],
   "scripts": {
     "build": "npm run build:ts && npm run build:main",
     "build:ts": "tsc -p .",
