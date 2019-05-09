@@ -23,13 +23,6 @@ interface IVueExtInstance extends Vue {
   __instance: any;
 }
 
-function getMeta(target: any): ComponentOptions<any> {
-  if (!target.__meta) {
-    target.__meta = {};
-  }
-  return target.__meta;
-}
-
 function mergeMeta(target: any, newMeta: ComponentOptions<any>) {
   target.__meta = {
     ...target.__meta,
@@ -41,21 +34,6 @@ export function Component(options: ComponentOptions<any>) {
   return (target: any) => {
     mergeMeta(target, options);
     return target;
-  };
-}
-
-interface INPropParams {
-  type: any;
-  required?: boolean;
-  default?: any;
-}
-
-export function Prop(params: INPropParams) {
-  return (target: any, field: string): any => {
-    const proto = target.constructor;
-    const meta = getMeta(proto);
-    meta.props = meta.props || {};
-    (meta.props as any)[field] = params;
   };
 }
 
@@ -165,6 +143,19 @@ function collectData(instance: any): Record<string, any> {
 
 }
 
+const registeredComponents: ComponentOptions<any>[] = [];
+
+export function overrideComponent(componentName: string, extendedComponent: ComponentOptions<any>) {
+
+  // override this component in all components that were registered
+  registeredComponents.forEach((registeredComponent) => {
+    if (registeredComponent.components && registeredComponent.components[componentName]) {
+      registeredComponent.components[componentName] = extendedComponent;
+    }
+  });
+
+}
+
 export function createVueComponent<P>(classType: INComponentClass<P>): ComponentOptions<any> {
 
   const meta: ComponentOptions<any> = (classType as any).__meta;
@@ -191,9 +182,21 @@ export function createVueComponent<P>(classType: INComponentClass<P>): Component
 
   };
 
-  return {
+  // create final component object
+  const finalComponent = {
     ...options,
     ...extractMethodsAndProperties(proto),
   };
+
+  // check if we have component name passed
+  if (!meta.name) {
+    throw new Error('Error: Component does not have `name` property.');
+  }
+
+  // add component to list for later
+  registeredComponents.push(finalComponent);
+
+  // finally return component
+  return finalComponent;
 
 }

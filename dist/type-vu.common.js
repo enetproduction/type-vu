@@ -30,12 +30,6 @@ var ComponentClass = /** @class */ (function () {
     });
     return ComponentClass;
 }());
-function getMeta(target) {
-    if (!target.__meta) {
-        target.__meta = {};
-    }
-    return target.__meta;
-}
 function mergeMeta(target, newMeta) {
     target.__meta = __assign({}, target.__meta, newMeta);
 }
@@ -43,14 +37,6 @@ function Component(options) {
     return function (target) {
         mergeMeta(target, options);
         return target;
-    };
-}
-function Prop(params) {
-    return function (target, field) {
-        var proto = target.constructor;
-        var meta = getMeta(proto);
-        meta.props = meta.props || {};
-        meta.props[field] = params;
     };
 }
 var $internalHooks = [
@@ -152,6 +138,17 @@ function collectData(instance) {
     });
     return resultObject;
 }
+var registeredComponents = [];
+function overrideComponent(componentName, extendedComponent) {
+    console.log('Override component ' + componentName + ' in ' + registeredComponents.length);
+    // override this component in all components that were registered
+    registeredComponents.forEach(function (registeredComponent) {
+        if (registeredComponent.components && registeredComponent.components[componentName]) {
+            console.log('Applying patch to ' + registeredComponent.name + ' ; replacing ' + componentName + ' with ' + extendedComponent);
+            registeredComponent.components[componentName] = extendedComponent;
+        }
+    });
+}
 function createVueComponent(classType) {
     var meta = classType.__meta;
     var proto = classType.prototype;
@@ -167,11 +164,20 @@ function createVueComponent(classType) {
         data: function () {
             return dataObject;
         } }, meta);
-    return __assign({}, options, extractMethodsAndProperties(proto));
+    // create final component object
+    var finalComponent = __assign({}, options, extractMethodsAndProperties(proto));
+    // check if we have component name passed
+    if (!meta.name) {
+        throw new Error('Error: Component does not have `name` property.');
+    }
+    // add component to list for later
+    registeredComponents.push(finalComponent);
+    // finally return component
+    return finalComponent;
 }
 
 exports.ComponentClass = ComponentClass;
 exports.Component = Component;
-exports.Prop = Prop;
 exports.$internalHooks = $internalHooks;
+exports.overrideComponent = overrideComponent;
 exports.createVueComponent = createVueComponent;
